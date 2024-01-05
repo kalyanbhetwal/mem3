@@ -122,7 +122,7 @@ fn main() -> ! {
     let dp = Peripherals::take().unwrap();
     let mut flash= dp.FLASH;
 
-    let page = 0x0800_9010 as u32;
+    let page = 0x0800_9020 as u32;
     let status = unlock(& mut flash);
     if status {
         hprintln!("Flash memory is unlocked.");
@@ -130,7 +130,7 @@ fn main() -> ! {
 
     wait_ready(&flash);
     //erase_page(&mut flash, page);
-    write_to_flash(&mut flash, page, 0x5678);
+    write_to_flash(&mut flash, page, 0x9878);
     hprintln!("Hello, world!").unwrap();
 
     // exit QEMU
