@@ -9,6 +9,7 @@ use cortex_m::asm::nop;
 use panic_halt as _;
 
 use cortex_m_rt::entry;
+use::core::arch::asm;
 use cortex_m_semihosting::{debug, hprintln};
 use stm32f3xx_hal_v2::{flash::ACR, pac::Peripherals, pac::FLASH};
 
@@ -122,7 +123,24 @@ fn main() -> ! {
     let dp = Peripherals::take().unwrap();
     let mut flash= dp.FLASH;
 
-    let page = 0x0800_9020 as u32;
+
+    let r0_value: u32;
+
+     unsafe {
+        asm!("mov r1, # 257
+                mov r2, #16
+                mov r3, #32
+                mov r4, #40")
+        }
+
+    unsafe {
+        asm!(
+            "MOV {0}, r1",
+            out(reg) r0_value
+        );
+    }
+
+    let page = 0x0800_9032 as u32;
     let status = unlock(& mut flash);
     if status {
         hprintln!("Flash memory is unlocked.");
@@ -130,8 +148,18 @@ fn main() -> ! {
 
     wait_ready(&flash);
     //erase_page(&mut flash, page);
-    write_to_flash(&mut flash, page, 0x9878);
-    hprintln!("Hello, world!").unwrap();
+    write_to_flash(&mut flash, page, r0_value as u16);
+    
+    let flash_address: *const u32 = 0x0800_9032 as *const u32;
+
+    unsafe {
+        asm!(
+            // Load the value from the Flash memory address into r0
+            "LDR r0, [{0}]",
+            in(reg) flash_address
+        );
+    }
+
 
     // exit QEMU
     // NOTE do not run this on hardware; it can corrupt OpenOCD state
