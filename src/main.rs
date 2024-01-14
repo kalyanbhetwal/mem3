@@ -346,12 +346,7 @@ fn checkpoint(){
 
 fn restore(){
     unsafe {
-        asm!(
-            "LDR r0, [{}]", 
-            in(reg) 0x0800_9060 as u32
-        );
-
-        asm!("Push {{r0}}");
+    
         asm!(
             "LDR r1, [{}]", 
             in(reg) 0x0800_9064 as u32
@@ -392,9 +387,50 @@ fn restore(){
         asm!(
             "LDR r7, [{}]", 
             in(reg) 0x0800_907C as u32
-        );  
-        asm!("POP {{r0}}");
+        );
 
+        asm!(
+            "LDR r8, [{}]", 
+            in(reg) 0x0800_9084 as u32
+        );
+        
+        asm!(
+            "LDR r9, [{}]", 
+            in(reg) 0x0800_9088 as u32
+        );  
+
+        asm!(
+            "LDR r10, [{}]", 
+            in(reg) 0x0800_908C as u32
+        );  
+
+        asm!(
+            "LDR r11, [{}]", 
+            in(reg) 0x0800_9090 as u32
+        );
+        
+        asm!(
+            "LDR r12, [{}]", 
+            in(reg) 0x0800_9094 as u32
+        );
+
+        asm!(
+            "LDR sp, [{}]", 
+            in(reg) 0x0800_9098 as u32
+        );
+
+        asm!(
+            "LDR r0, [{}]", 
+            in(reg) 0x0800_909C as u32
+        );
+        asm!("Push {{r0}}");
+        
+        asm!(
+            "LDR r0, [{}]", 
+            in(reg) 0x0800_9060 as u32
+        );
+
+        asm!("POP {{PC}}");   // restore LR to PC
        }
 }
 
