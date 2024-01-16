@@ -304,19 +304,7 @@ fn checkpoint(){
     write_to_flash(&mut flash,  0x0800_909C as u32, r14_lr as u32);
     write_to_flash(&mut flash,  0x0800_90A0 as u32, r15_pc as u32);
 
-
-    unsafe {
-        asm!("  mov r0, #0xffff
-                mov r1, #0xffff
-                mov r2, #0xffff
-                mov r3, #0xffff
-                mov r4, #0xffff
-                mov r5, #0xffff
-                mov r6, #0xffff
-                mov r7, #0xffff
-                ")
-        }
-        
+     
         unsafe{
             // let r0_flash = ptr::read_volatile(0x0800_9060 as *const u32);
             // let r1_flash = ptr::read_volatile(0x0800_9064 as *const u32);
@@ -344,9 +332,12 @@ fn checkpoint(){
         
 }
 
-fn restore(){
+fn restore()->bool{
     unsafe {
-    
+        let r0_flash = ptr::read_volatile(0x0800_9060 as *const u32);
+        if r0_flash == 0xffff_ffff {
+            return false
+        }
         asm!(
             "LDR r1, [{}]", 
             in(reg) 0x0800_9064 as u32
@@ -431,11 +422,24 @@ fn restore(){
         );
 
         asm!("POP {{PC}}");   // restore LR to PC
-       }
+    }
+    return true;
+}
+
+fn delete_pg(page: u32){
+    let dp = Peripherals::take().unwrap();
+    let mut flash= dp.FLASH;
+    //let page = 0x0800_9034 as u32;
+    unlock(& mut flash); 
+    wait_ready(&flash);
+    erase_page(&mut flash,  page);
 }
 
 #[no_mangle]
 pub extern "C" fn main() -> ! {
+    
+   restore();
+  //delete_pg(0x0800_9060 as u32);
      unsafe {
         asm!("  mov r0, #10
                 mov r1, #24
@@ -446,20 +450,11 @@ pub extern "C" fn main() -> ! {
                 mov r6, #59
                 mov r7, #17
                 ")
-        }
-    
+     }
     checkpoint();
-    restore();
-
-    // unsafe {
-    //     asm!(
-    //         "MOV {0}, r1",
-    //         out(reg) r0_value
-    //     );
-    // }
-
-   
-
+    unsafe{
+        asm!("add r0, r1");
+    }
     // exit QEMU
     // NOTE do not run this on hardware; it can corrupt OpenOCD state
     //debug::exit(debug::EXIT_SUCCESS);
