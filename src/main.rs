@@ -122,7 +122,7 @@ fn checkpoint(){
 
     unsafe {
         asm!(
-            "add sp, #80"
+            "add sp, #112"
         );
     }
     unsafe {
@@ -137,7 +137,7 @@ fn checkpoint(){
     }
     unsafe {
         asm!(
-            "sub sp, #80"
+            "sub sp, #112"
         );
     }
 
@@ -269,7 +269,7 @@ fn checkpoint(){
     }
     unsafe {
         asm!(
-            "add r0, #80",
+            "add r0, #120",
         );
     }
     unsafe {
@@ -278,15 +278,43 @@ fn checkpoint(){
             out(reg) r13_sp
         );
     }
+    
     let dp = Peripherals::take().unwrap();
     let mut flash= dp.FLASH;
-    //let page = 0x0800_9034 as u32;
-     unlock(& mut flash);
-    // if status {
-    //     hprintln!("Flash memory is unlocked.");
-    // }
+    unlock(& mut flash);
     wait_ready(&flash);
-    //erase_page(&mut flash, 0x0800_9060 as u32);
+
+    unsafe{
+        //let  start_address: u32 = 0x2000_fffc as u32;
+        let mut start_address:u32;
+        let  end_address = r13_sp;
+        
+        asm!("movw r0, 0x9FF8
+             movt r0, 0x2000");
+         asm!(
+             "MOV {0}, r0",
+             out(reg) start_address
+         );
+ 
+         let mut flash_start_address:u32;
+ 
+         asm!("movw r0, 0x90A4
+             movt r0, 0x0800");
+         asm!(
+             "MOV {0}, r0",
+             out(reg) flash_start_address
+         );
+
+         while start_address >= end_address{
+            let data = core::ptr::read_volatile(start_address as * const u32);
+            write_to_flash(&mut flash,  flash_start_address as u32, data as u32);
+            flash_start_address = flash_start_address + 4;
+            // Move to the next address based on the size of the type
+            start_address = start_address-4;
+            
+        }
+    }
+    
     write_to_flash(&mut flash,  0x0800_9060 as u32, r0_value as u32);
     write_to_flash(&mut flash,  0x0800_9064 as u32, r1_value as u32);
     write_to_flash(&mut flash,  0x0800_9068 as u32, r2_value as u32);
@@ -304,31 +332,6 @@ fn checkpoint(){
     write_to_flash(&mut flash,  0x0800_909C as u32, r14_lr as u32);
     write_to_flash(&mut flash,  0x0800_90A0 as u32, r15_pc as u32);
 
-     
-        unsafe{
-            // let r0_flash = ptr::read_volatile(0x0800_9060 as *const u32);
-            // let r1_flash = ptr::read_volatile(0x0800_9064 as *const u32);
-            // let r2_flash = ptr::read_volatile(0x0800_9068 as *const u32);
-            // let r3_flash = ptr::read_volatile(0x0800_906C as *const u32);
-            // let r4_flash = ptr::read_volatile(0x0800_9070 as *const u32);
-            // let r5_flash = ptr::read_volatile(0x0800_9074 as *const u32);
-            // let r6_flash = ptr::read_volatile(0x0800_9078 as *const u32);
-            // let r7_flash = ptr::read_volatile(0x0800_907C as *const u32);
-
-            
-            // asm!("STMDB sp!, {{{0}, {1}, {2}}}", // Store Multiple with Decrement Before
-            //         in(reg) r0_flash,
-            //         in(reg) r1_flash,
-            //         in(reg) r2_flash,
-            //     );
-        
-            // asm!("MOV r1, {0}",in(reg) r1_flash);
-            // asm!("MOV r2, {0}",in(reg) r2_flash);
-            // asm!("MOV r3, {0}",in(reg) r3_flash);
-            // asm!("MOV r4, {0}",in(reg) r4_flash);
-            // asm!("MOV r5, {0}",in(reg) r5_flash);
-        }
-    
         
 }
 
@@ -338,6 +341,28 @@ fn restore()->bool{
         if r0_flash == 0xffff_ffff {
             return false
         }
+
+        //set sp to 0x0200_fffc
+        asm!("movw r0, 0x9ff8
+        movt r0, 0x02000");
+        asm!("msr msp, r0");
+
+        asm!("movw r0, 0x90A4
+            movt r0, 0x0800");
+
+
+        asm!("movw r3, 0xffff
+        movt r3, 0xffff");
+    
+        asm!("1:
+            ldr r1, [r0, #4]
+            cmp r1, r3
+            beq 2f
+            push {{r1}}
+            adds r0, r0, #1
+            b 1b
+            2:");     
+
         asm!(
             "LDR r1, [{}]", 
             in(reg) 0x0800_9064 as u32
@@ -429,7 +454,6 @@ fn restore()->bool{
 fn delete_pg(page: u32){
     let dp = Peripherals::take().unwrap();
     let mut flash= dp.FLASH;
-    //let page = 0x0800_9034 as u32;
     unlock(& mut flash); 
     wait_ready(&flash);
     erase_page(&mut flash,  page);
@@ -437,9 +461,8 @@ fn delete_pg(page: u32){
 
 #[no_mangle]
 pub extern "C" fn main() -> ! {
-    
-   restore();
-  //delete_pg(0x0800_9060 as u32);
+   // delete_pg(0x0800_9060 as u32);
+  restore();
      unsafe {
         asm!("  mov r0, #10
                 mov r1, #24
