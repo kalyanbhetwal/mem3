@@ -461,23 +461,26 @@ fn delete_pg(page: u32){
 
 #[no_mangle]
 pub extern "C" fn main() -> ! {
-   // delete_pg(0x0800_9060 as u32);
+  // delete_pg(0x0800_9060 as u32);
   restore();
-     unsafe {
-        asm!("  mov r0, #10
-                mov r1, #24
-                mov r2, #16
-                mov r3, #32
-                mov r4, #67
-                mov r5, #79
-                mov r6, #59
-                mov r7, #17
-                ")
-     }
+  let a = 10;
+  let b = 30;
+    //  unsafe {
+    //     asm!("  mov r0, #10
+    //             mov r1, #24
+    //             mov r2, #16
+    //             mov r3, #32
+    //             mov r4, #67
+    //             mov r5, #79
+    //             mov r6, #59
+    //             mov r7, #17
+    //             ")
+    //  }
     checkpoint();
-    unsafe{
-        asm!("add r0, r1");
-    }
+    let c = a + b;
+    // unsafe{
+    //     asm!("add r0, r1");
+    // }
     // exit QEMU
     // NOTE do not run this on hardware; it can corrupt OpenOCD state
     //debug::exit(debug::EXIT_SUCCESS);
