@@ -122,7 +122,7 @@ fn checkpoint(){
 
     unsafe {
         asm!(
-            "add sp, #112"
+            "add sp, #344"
         );
     }
     unsafe {
@@ -137,7 +137,7 @@ fn checkpoint(){
     }
     unsafe {
         asm!(
-            "sub sp, #112"
+            "sub sp, #344"
         );
     }
 
@@ -269,7 +269,7 @@ fn checkpoint(){
     }
     unsafe {
         asm!(
-            "add r0, #120",
+            "add r0, #352",
         );
     }
     unsafe {
@@ -288,7 +288,6 @@ fn checkpoint(){
         //let  start_address: u32 = 0x2000_fffc as u32;
         let mut start_address:u32;
         let  end_address = r13_sp;
-        // 0x08002000
         asm!("movw r0, 0x9FF8
              movt r0, 0x2000");
 
@@ -314,7 +313,7 @@ fn checkpoint(){
             let flash_end_address = 0x0807_FFFF-1+1;
             if flash_end_address - flash_start_address < checkpoint_size {
                 //clear flash
-                //set start and offset
+                //set start address and offset
             }
 
             write_to_flash(&mut flash,  0x0800_2000 as u32, offset+checkpoint_size  as u32);
