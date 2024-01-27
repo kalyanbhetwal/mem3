@@ -358,7 +358,7 @@ fn checkpoint(){
     write_to_flash(&mut flash,  flash_start_address+4*14 as u32, r14_lr as u32);
     write_to_flash(&mut flash,  flash_start_address+4*15 as u32, r15_pc as u32);
 
-    write_to_flash(&mut flash,  flash_start_address+4 as u32, offset as u32); 
+    write_to_flash(&mut flash,  flash_start_address+4 as u32, checkpoint_size as u32); 
 
     }     
 }
