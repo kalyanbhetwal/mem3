@@ -288,22 +288,39 @@ fn checkpoint(){
         //let  start_address: u32 = 0x2000_fffc as u32;
         let mut start_address:u32;
         let  end_address = r13_sp;
-        
+        // 0x08002000
         asm!("movw r0, 0x9FF8
              movt r0, 0x2000");
+
          asm!(
              "MOV {0}, r0",
              out(reg) start_address
          );
- 
+
+         let stack_size = (start_address - end_address) + 4;
+
+        // leaving first 8K for program i.e start at 0x0800_2000
          let mut flash_start_address:u32;
- 
-         asm!("movw r0, 0x90A4
-             movt r0, 0x0800");
-         asm!(
-             "MOV {0}, r0",
-             out(reg) flash_start_address
-         );
+         
+         let checkpoint_size = stack_size+4+16*4 +4;
+         let offset = ptr::read_volatile(0x0800_2000 as *const u32);
+         if offset == 0xffff_ffff {
+      // stack_size + 4(0xffff_ffff to signal end of stack) + 16*4(store registers) + 4 (size of a packet)
+            write_to_flash(&mut flash,  0x0800_2000 as u32, checkpoint_size  as u32);
+            flash_start_address = 0x0800_2004;
+         }
+         else{
+            flash_start_address = 0x0800_2004 + offset; 
+            let flash_end_address = 0x0807_FFFF-1+1;
+            if flash_end_address - flash_start_address < checkpoint_size {
+                //clear flash
+                //set start and offset
+            }
+
+            write_to_flash(&mut flash,  0x0800_2000 as u32, offset+checkpoint_size  as u32);
+          
+         }
+         
 
          while start_address >= end_address{
             let data = core::ptr::read_volatile(start_address as * const u32);
@@ -313,26 +330,37 @@ fn checkpoint(){
             start_address = start_address-4;
             
         }
-    }
     
-    write_to_flash(&mut flash,  0x0800_9060 as u32, r0_value as u32);
-    write_to_flash(&mut flash,  0x0800_9064 as u32, r1_value as u32);
-    write_to_flash(&mut flash,  0x0800_9068 as u32, r2_value as u32);
-    write_to_flash(&mut flash,  0x0800_906C as u32, r3_value as u32);
-    write_to_flash(&mut flash,  0x0800_9070 as u32, r4_value as u32);
-    write_to_flash(&mut flash,  0x0800_9074 as u32, r5_value as u32);
-    write_to_flash(&mut flash,  0x0800_9078 as u32, r6_value as u32);
-    write_to_flash(&mut flash,  0x0800_907C as u32, r7_value as u32);
-    write_to_flash(&mut flash,  0x0800_9084 as u32, r8_value as u32);
-    write_to_flash(&mut flash,  0x0800_9088 as u32, r9_value as u32);
-    write_to_flash(&mut flash,  0x0800_908C as u32, r10_value as u32);
-    write_to_flash(&mut flash,  0x0800_9090 as u32, r11_value as u32);
-    write_to_flash(&mut flash,  0x0800_9094 as u32, r12_value as u32);
-    write_to_flash(&mut flash,  0x0800_9098 as u32, r13_sp as u32);
-    write_to_flash(&mut flash,  0x0800_909C as u32, r14_lr as u32);
-    write_to_flash(&mut flash,  0x0800_90A0 as u32, r15_pc as u32);
+    //mark the end of the stack
+    write_to_flash(&mut flash,  flash_start_address as u32, 0xffff_ffff as u32);
+    flash_start_address +=4;
 
-        
+    // for i in 0..15{
+    //     write_to_flash(&mut flash,  0x0800_9060 as u32, r0_value as u32);
+    //       flash_start_address = flash_start_address + 4;
+    // }
+
+
+    write_to_flash(&mut flash,  flash_start_address as u32, r0_value as u32);
+    write_to_flash(&mut flash,  flash_start_address+4 as u32, r1_value as u32);
+    write_to_flash(&mut flash,  flash_start_address+4*2 as u32, r2_value as u32);
+    write_to_flash(&mut flash,  flash_start_address+4*3 as u32, r3_value as u32);
+    write_to_flash(&mut flash,  flash_start_address+4*4 as u32, r4_value as u32);
+    write_to_flash(&mut flash,  flash_start_address+4*5 as u32, r5_value as u32);
+    write_to_flash(&mut flash,  flash_start_address+4*6 as u32, r6_value as u32);
+    write_to_flash(&mut flash,  flash_start_address+4*7 as u32, r7_value as u32);
+    write_to_flash(&mut flash,  flash_start_address+4*8 as u32, r8_value as u32);
+    write_to_flash(&mut flash,  flash_start_address+4*9 as u32, r9_value as u32);
+    write_to_flash(&mut flash,  flash_start_address+4*10 as u32, r10_value as u32);
+    write_to_flash(&mut flash,  flash_start_address+4*11 as u32, r11_value as u32);
+    write_to_flash(&mut flash,  flash_start_address+4*12 as u32, r12_value as u32);
+    write_to_flash(&mut flash,  flash_start_address+4*13 as u32, r13_sp as u32);
+    write_to_flash(&mut flash,  flash_start_address+4*14 as u32, r14_lr as u32);
+    write_to_flash(&mut flash,  flash_start_address+4*15 as u32, r15_pc as u32);
+
+    write_to_flash(&mut flash,  flash_start_address+4 as u32, offset as u32); 
+
+    }     
 }
 
 fn restore()->bool{
