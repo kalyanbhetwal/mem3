@@ -359,6 +359,7 @@ fn checkpoint(){
 
     //write the size of packet at the end of the packet
     write_to_flash(&mut flash,  flash_start_address+4 as u32, checkpoint_size as u32); 
+    
 
     }     
 }
