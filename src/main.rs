@@ -298,26 +298,27 @@ fn checkpoint(){
 
          let stack_size = (start_address - end_address) + 4;
 
-        // leaving first 8K for program i.e start at 0x0800_2000
+        // leaving first xyz K for program i.e start at 0x0801_0000
          let mut flash_start_address:u32;
          
          let checkpoint_size = stack_size+4+16*4 +4;
-         let offset = ptr::read_volatile(0x0800_2000 as *const u32);
+         let mut offset = ptr::read_volatile(0x0801_0000 as *const u32);
          if offset == 0xffff_ffff {
       // stack_size + 4(0xffff_ffff to signal end of stack) + 16*4(store registers) + 4 (size of a packet)
-            write_to_flash(&mut flash,  0x0800_2000 as u32, checkpoint_size  as u32);
-            flash_start_address = 0x0800_2004;
+            write_to_flash(&mut flash,  0x0801_0000 as u32, checkpoint_size  as u32);
+            flash_start_address = 0x0801_0004;
          }
          else{
-            flash_start_address = 0x0800_2004 + offset; 
+            flash_start_address = 0x0801_0000 + offset; 
             let flash_end_address = 0x0807_FFFF-1+1;
             if flash_end_address - flash_start_address < checkpoint_size {
                 //clear flash
                 //set start address and offset
+                erase_all(&mut flash);
+                flash_start_address = 0x0801_0004;
+                offset = 0;
             }
-
-            write_to_flash(&mut flash,  0x0800_2000 as u32, offset+checkpoint_size  as u32);
-          
+            write_to_flash(&mut flash,  0x0801_0000 as u32, offset+checkpoint_size  as u32);
          }
          
 
@@ -359,26 +360,40 @@ fn checkpoint(){
 
     //write the size of packet at the end of the packet
     write_to_flash(&mut flash,  flash_start_address+4 as u32, checkpoint_size as u32); 
-    
+
 
     }     
 }
 
+fn erase_all(flash: &mut FLASH){
+    let start_address = 0x0801_0000;
+
+    for i in 0..255{
+        let page = start_address + i * 2*1024;
+         erase_page(flash,  page);
+    }
+
+}
 fn restore()->bool{
     unsafe {
-        let r0_flash = ptr::read_volatile(0x0800_9060 as *const u32);
-        if r0_flash == 0xffff_ffff {
+        let packet_size = ptr::read_volatile(0x0801_0000 as *const u32);
+        //let r0_flash = ptr::read_volatile(0x0800_9060 as *const u32);
+        if packet_size == 0xffff_ffff {
             return false
         }
+        let mut end_address = 0x0801_0004 + packet_size;
+        let recent_frame_size: u32 = ptr::read_volatile(end_address as *const u32);
+        let mut recent_frame_start_address = end_address - recent_frame_size;
+
+        asm!(
+            "mov r0, {0}",
+            in(reg) recent_frame_start_address
+        );
 
         //set sp to 0x0200_fffc
-        asm!("movw r0, 0x9ff8
-        movt r0, 0x02000");
-        asm!("msr msp, r0");
-
-        asm!("movw r0, 0x90A4
-            movt r0, 0x0800");
-
+        asm!("movw r1, 0x9ff8
+        movt r1, 0x02000");
+        asm!("msr msp, r1");
 
         asm!("movw r3, 0xffff
         movt r3, 0xffff");
@@ -491,6 +506,7 @@ fn delete_pg(page: u32){
 #[no_mangle]
 pub extern "C" fn main() -> ! {
  // delete_pg(0x0800_9060 as u32);
+  
   restore();
 
   let a: i32;
