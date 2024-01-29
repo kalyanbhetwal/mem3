@@ -407,90 +407,142 @@ fn restore()->bool{
             b 1b
             2:");     
 
-        asm!(
-            "LDR r1, [{}]", 
-            in(reg) 0x0800_9064 as u32
-        );
-        // asm!("Push {{r1}}");
+        asm!("adds r0, r0, #4");
+        asm!( "LDR r1, [r0]");
+        asm!("Push {{r1}}");
 
-        asm!(
-            "LDR r2, [{}]", 
-            in(reg) 0x0800_9068 as u32
-        );
-        // asm!("Push {{r2}}");
+        asm!("adds r0, r0, #4");
+        asm!( "LDR r1, [r0]");
 
-        asm!(
-            "LDR r3, [{}]", 
-            in(reg) 0x0800_906C as u32
-        );
-        // asm!("Push {{r3}}");
+        asm!("adds r0, r0, #4");
+        asm!( "LDR r2, [r0]");
 
-        asm!(
-            "LDR r4, [{}]", 
-            in(reg) 0x0800_9070 as u32
-        );
+        asm!("adds r0, r0, #4");
+        asm!( "LDR r3, [r0]");
 
-        // asm!("Push {{r4}}");
+        asm!("adds r0, r0, #4");
+        asm!( "LDR r4, [r0]");
 
-        asm!(
-            "LDR r5, [{}]", 
-            in(reg) 0x0800_9074 as u32
-        );  
-        // asm!("Push {{r5}}");    
+        asm!("adds r0, r0, #4");
+        asm!( "LDR r5, [r0]");
+
+        asm!("adds r0, r0, #4");
+        asm!( "LDR r6, [r0]");
+
+        asm!("adds r0, r0, #4");
+        asm!( "LDR r7, [r0]");
+
+        asm!("adds r0, r0, #4");
+        asm!( "LDR r8, [r0]");
+
+        asm!("adds r0, r0, #4");
+        asm!( "LDR r9, [r0]");
+
+        asm!("adds r0, r0, #4");
+        asm!( "LDR r10, [r0]");
+
+        asm!("adds r0, r0, #4");
+        asm!( "LDR r10, [r0]");
+
+        asm!("adds r0, r0, #4");
+        asm!( "LDR r11, [r0]");
+
+        asm!("adds r0, r0, #4");
+        asm!( "LDR r12, [r0]");
+
+        asm!("adds r0, r0, #4");
+        //asm!( "LDR r13, [r0]"); //no need to do this
+
+        asm!("adds r0, r0, #4");
+        asm!( "LDR r14, [r0]");
+
+        asm!("POP {{r0}}");
+        asm!("mov r15, r14");
+
+        // asm!(
+        //     "LDR r1, [{}]", 
+        //     in(reg) 0x0800_9064 as u32
+        // );
+        // // asm!("Push {{r1}}");
+
+        // asm!(
+        //     "LDR r2, [{}]", 
+        //     in(reg) 0x0800_9068 as u32
+        // );
+        // // asm!("Push {{r2}}");
+
+        // asm!(
+        //     "LDR r3, [{}]", 
+        //     in(reg) 0x0800_906C as u32
+        // );
+        // // asm!("Push {{r3}}");
+
+        // asm!(
+        //     "LDR r4, [{}]", 
+        //     in(reg) 0x0800_9070 as u32
+        // );
+
+        // // asm!("Push {{r4}}");
+
+        // asm!(
+        //     "LDR r5, [{}]", 
+        //     in(reg) 0x0800_9074 as u32
+        // );  
+        // // asm!("Push {{r5}}");    
         
-        asm!(
-            "LDR r6, [{}]", 
-            in(reg) 0x0800_9078 as u32
-        );  
-        // asm!("Push {{r6}}");
+        // asm!(
+        //     "LDR r6, [{}]", 
+        //     in(reg) 0x0800_9078 as u32
+        // );  
+        // // asm!("Push {{r6}}");
 
-        asm!(
-            "LDR r7, [{}]", 
-            in(reg) 0x0800_907C as u32
-        );
+        // asm!(
+        //     "LDR r7, [{}]", 
+        //     in(reg) 0x0800_907C as u32
+        // );
 
-        asm!(
-            "LDR r8, [{}]", 
-            in(reg) 0x0800_9084 as u32
-        );
+        // asm!(
+        //     "LDR r8, [{}]", 
+        //     in(reg) 0x0800_9084 as u32
+        // );
         
-        asm!(
-            "LDR r9, [{}]", 
-            in(reg) 0x0800_9088 as u32
-        );  
+        // asm!(
+        //     "LDR r9, [{}]", 
+        //     in(reg) 0x0800_9088 as u32
+        // );  
 
-        asm!(
-            "LDR r10, [{}]", 
-            in(reg) 0x0800_908C as u32
-        );  
+        // asm!(
+        //     "LDR r10, [{}]", 
+        //     in(reg) 0x0800_908C as u32
+        // );  
 
-        asm!(
-            "LDR r11, [{}]", 
-            in(reg) 0x0800_9090 as u32
-        );
+        // asm!(
+        //     "LDR r11, [{}]", 
+        //     in(reg) 0x0800_9090 as u32
+        // );
         
-        asm!(
-            "LDR r12, [{}]", 
-            in(reg) 0x0800_9094 as u32
-        );
+        // asm!(
+        //     "LDR r12, [{}]", 
+        //     in(reg) 0x0800_9094 as u32
+        // );
 
-        asm!(
-            "LDR sp, [{}]", 
-            in(reg) 0x0800_9098 as u32
-        );
+        // asm!(
+        //     "LDR sp, [{}]", 
+        //     in(reg) 0x0800_9098 as u32
+        // );
 
-        asm!(
-            "LDR r0, [{}]", 
-            in(reg) 0x0800_909C as u32
-        );
-        asm!("Push {{r0}}");
+        // asm!(
+        //     "LDR r0, [{}]", 
+        //     in(reg) 0x0800_909C as u32
+        // );
+        // asm!("Push {{r0}}");
         
-        asm!(
-            "LDR r0, [{}]", 
-            in(reg) 0x0800_9060 as u32
-        );
+        // asm!(
+        //     "LDR r0, [{}]", 
+        //     in(reg) 0x0800_9060 as u32
+        // );
 
-        asm!("POP {{PC}}");   // restore LR to PC
+        // asm!("POP {{PC}}");   // restore LR to PC
     }
     return true;
 }
