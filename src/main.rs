@@ -122,7 +122,7 @@ fn checkpoint(){
 
     unsafe {
         asm!(
-            "add sp, #344"
+            "add sp, #168"
         );
     }
     unsafe {
@@ -137,7 +137,7 @@ fn checkpoint(){
     }
     unsafe {
         asm!(
-            "sub sp, #344"
+            "sub sp, #168"
         );
     }
 
@@ -269,7 +269,7 @@ fn checkpoint(){
     }
     unsafe {
         asm!(
-            "add r0, #352",
+            "add r0, #176",
         );
     }
     unsafe {
@@ -297,29 +297,59 @@ fn checkpoint(){
          );
 
          let stack_size = (start_address - end_address) + 4;
-
         // leaving first xyz K for program i.e start at 0x0801_0000
          let mut flash_start_address:u32;
-         
+         let mut flash_end_address: u32;
          let checkpoint_size = stack_size+4+16*4 +4;
-         let mut offset = ptr::read_volatile(0x0801_0000 as *const u32);
-         if offset == 0xffff_ffff {
-      // stack_size + 4(0xffff_ffff to signal end of stack) + 16*4(store registers) + 4 (size of a packet)
-            write_to_flash(&mut flash,  0x0801_0000 as u32, checkpoint_size  as u32);
-            flash_start_address = 0x0801_0004;
-         }
-         else{
-            flash_start_address = 0x0801_0000 + offset; 
-            let flash_end_address = 0x0807_FFFF-1+1;
-            if flash_end_address - flash_start_address < checkpoint_size {
-                //clear flash
-                //set start address and offset
-                erase_all(&mut flash);
-                flash_start_address = 0x0801_0004;
-                offset = 0;
+          
+         asm!("movw r0, 0x00e0
+         movt r0, 0x0801");
+
+        asm!(
+            "MOV {0}, r0",
+            out(reg) flash_start_address
+        );
+
+        asm!("movw r0, 0xFFFF
+        movt r0, 0x0807");
+
+       asm!(
+           "MOV {0}, r0",
+           out(reg) flash_end_address
+       );
+
+        loop{
+            let mut offset = ptr::read_volatile(flash_start_address as *const u32);
+            if offset == 0xffff_ffff{
+                break;
             }
-            write_to_flash(&mut flash,  0x0801_0000 as u32, offset+checkpoint_size  as u32);
-         }
+            flash_start_address+=offset; 
+            if flash_start_address + checkpoint_size >= flash_end_address{
+                erase_all(&mut flash);
+               // flash_start_address = 0x0801_00A0;
+            }
+        }
+
+        //write the size of packet at the begining of the packet
+        write_to_flash(&mut flash,  flash_start_address as u32, checkpoint_size as u32); 
+        flash_start_address+=4;
+    //      if offset == 0xffff_ffff {
+    //   // stack_size + 4(0xffff_ffff to signal end of stack) + 16*4(store registers) + 4 (size of a packet)
+    //         write_to_flash(&mut flash,  flash_start_address as u32, checkpoint_size+1-1  as u32);
+    //         flash_start_address = flash_start_address + 4;
+    //      }
+    //      else{
+    //         flash_start_address = flash_start_address + offset; 
+    //         let flash_end_address = 0x0807_FFFF-1+1;
+    //         if flash_end_address - flash_start_address < checkpoint_size {
+    //             //clear flash
+    //             //set start address and offset
+    //             erase_all(&mut flash);
+    //             flash_start_address = 0x0801_0004;
+    //             offset = 0;
+    //         }
+    //         write_to_flash(&mut flash,  0x0801_0000 as u32, offset+checkpoint_size+1-1  as u32);
+    //      }
          
 
          while start_address >= end_address{
@@ -341,26 +371,22 @@ fn checkpoint(){
     // }
 
 
-    write_to_flash(&mut flash,  flash_start_address as u32, r0_value as u32);
-    write_to_flash(&mut flash,  flash_start_address+4 as u32, r1_value as u32);
-    write_to_flash(&mut flash,  flash_start_address+4*2 as u32, r2_value as u32);
-    write_to_flash(&mut flash,  flash_start_address+4*3 as u32, r3_value as u32);
-    write_to_flash(&mut flash,  flash_start_address+4*4 as u32, r4_value as u32);
-    write_to_flash(&mut flash,  flash_start_address+4*5 as u32, r5_value as u32);
-    write_to_flash(&mut flash,  flash_start_address+4*6 as u32, r6_value as u32);
-    write_to_flash(&mut flash,  flash_start_address+4*7 as u32, r7_value as u32);
-    write_to_flash(&mut flash,  flash_start_address+4*8 as u32, r8_value as u32);
-    write_to_flash(&mut flash,  flash_start_address+4*9 as u32, r9_value as u32);
-    write_to_flash(&mut flash,  flash_start_address+4*10 as u32, r10_value as u32);
-    write_to_flash(&mut flash,  flash_start_address+4*11 as u32, r11_value as u32);
-    write_to_flash(&mut flash,  flash_start_address+4*12 as u32, r12_value as u32);
-    write_to_flash(&mut flash,  flash_start_address+4*13 as u32, r13_sp as u32);
-    write_to_flash(&mut flash,  flash_start_address+4*14 as u32, r14_lr as u32);
-    write_to_flash(&mut flash,  flash_start_address+4*15 as u32, r15_pc as u32);
-
-    //write the size of packet at the end of the packet
-    write_to_flash(&mut flash,  flash_start_address+4 as u32, checkpoint_size as u32); 
-
+    // write_to_flash(&mut flash,  flash_start_address as u32, r0_value as u32);
+    // write_to_flash(&mut flash,  flash_start_address+4 as u32, r1_value as u32);
+    // write_to_flash(&mut flash,  flash_start_address+4*2 as u32, r2_value as u32);
+    // write_to_flash(&mut flash,  flash_start_address+4*3 as u32, r3_value as u32);
+    // write_to_flash(&mut flash,  flash_start_address+4*4 as u32, r4_value as u32);
+    // write_to_flash(&mut flash,  flash_start_address+4*5 as u32, r5_value as u32);
+    // write_to_flash(&mut flash,  flash_start_address+4*6 as u32, r6_value as u32);
+    // write_to_flash(&mut flash,  flash_start_address+4*7 as u32, r7_value as u32);
+    // write_to_flash(&mut flash,  flash_start_address+4*8 as u32, r8_value as u32);
+    // write_to_flash(&mut flash,  flash_start_address+4*9 as u32, r9_value as u32);
+    // write_to_flash(&mut flash,  flash_start_address+4*10 as u32, r10_value as u32);
+    // write_to_flash(&mut flash,  flash_start_address+4*11 as u32, r11_value as u32);
+    // write_to_flash(&mut flash,  flash_start_address+4*12 as u32, r12_value as u32);
+    // write_to_flash(&mut flash,  flash_start_address+4*13 as u32, r13_sp as u32);
+    // write_to_flash(&mut flash,  flash_start_address+4*14 as u32, r14_lr as u32);
+    // write_to_flash(&mut flash,  flash_start_address+4*15 as u32, r15_pc as u32);
 
     }     
 }
@@ -557,31 +583,29 @@ fn delete_pg(page: u32){
 
 #[no_mangle]
 pub extern "C" fn main() -> ! {
- // delete_pg(0x0800_9060 as u32);
+  //delete_pg(0x0801_0000 as u32);
   
-  restore();
+  //restore();
 
-  let a: i32;
-  let b : i32;
 
     unsafe {
-    asm!("mov r0, #10");
-        asm!(
-            "MOV {0}, r0",
-            out(reg) a
-        );
+    asm!("mov r0, #10
+          mov r1, #20
+          mov r2, #30
+          mov r3, #40
+          mov r4, #50
+          mov r5, #20
+          mov r6, #30
+          mov r7, #40
+          mov r8, #50
+    "); 
     }
-    unsafe {
-        asm!(" mov r0, #20");
-            asm!(
-                "MOV {0}, r0",
-                out(reg) b
-            );
-        }
-      
-  
     checkpoint();
-    let c = a + b;
+
+    unsafe {
+        asm!("add r0, r1"); 
+        }
+  
 
     // exit QEMU
     // NOTE do not run this on hardware; it can corrupt OpenOCD state
