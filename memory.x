@@ -1,3 +1,4 @@
+STACK_SIZE = 4K;  
 MEMORY
 {
   /* NOTE 1 K = 1 KiBi = 1024 bytes */
@@ -32,3 +33,11 @@ MEMORY
      } > RAM2
    } INSERT AFTER .bss;
 */
+
+/* Define the stack section */
+_estack = ORIGIN(RAM) + LENGTH(RAM);
+_stack_start = _estack;
+
+/* Specify the stack section location and size */
+PROVIDE(_stack_start = _stack_start);
+PROVIDE(_stack_end = _estack - STACK_SIZE);
