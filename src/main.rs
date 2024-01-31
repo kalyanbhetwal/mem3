@@ -13,6 +13,10 @@ use::core::arch::asm;
 use cortex_m_semihosting::{debug, hprintln};
 use stm32f3xx_hal_v2::{flash::ACR, pac::Peripherals, pac::FLASH};
 
+use volatile::Volatile;
+use core::sync::atomic::{compiler_fence, Ordering};
+
+
 const UNLOCK_KEY1: u32 = 0x4567_0123;
 const UNLOCK_KEY2: u32 = 0xCDEF_89AB;
 
@@ -118,11 +122,12 @@ fn write_to_flash(flash: &mut FLASH, addr: u32, data: u32) {
 
 }
 
+#[cfg(debug_assertions)]
 fn checkpoint(){
 
     unsafe {
         asm!(
-            "add sp, #168"
+            "add sp, #280"
         );
     }
     unsafe {
@@ -137,7 +142,7 @@ fn checkpoint(){
     }
     unsafe {
         asm!(
-            "sub sp, #168"
+            "sub sp, #280"
         );
     }
 
@@ -269,7 +274,7 @@ fn checkpoint(){
     }
     unsafe {
         asm!(
-            "add r0, #176",
+            "add r0, #288",
         );
     }
     unsafe {
@@ -298,41 +303,47 @@ fn checkpoint(){
 
          let stack_size = (start_address - end_address) + 4;
         // leaving first xyz K for program i.e start at 0x0801_0000
-         let mut flash_start_address:u32;
-         let mut flash_end_address: u32;
-         let checkpoint_size = stack_size+4+16*4 +4;
-          
-         asm!("movw r0, 0x00e0
-         movt r0, 0x0801");
+         let mut flash_start_address = Volatile::new(0x0801_0000);
+         let mut flash_end_address = Volatile::new(0x0807_FFFF);    
 
-        asm!(
-            "MOV {0}, r0",
-            out(reg) flash_start_address
-        );
+    //      asm!("movw r0, 0x00e0
+    //      movt r0, 0x0801");
 
-        asm!("movw r0, 0xFFFF
-        movt r0, 0x0807");
+    //     asm!(
+    //         "MOV {0}, r0",
+    //         out(reg) flash_start_address
+    //     );
 
-       asm!(
-           "MOV {0}, r0",
-           out(reg) flash_end_address
-       );
+    //     asm!("movw r0, 0xFFFF
+    //     movt r0, 0x0807");
+
+    //    asm!(
+    //        "MOV {0}, r0",
+    //        out(reg) flash_end_address
+    //    );
+
+        let mut checkpoint_size= Volatile::new(0u32);
+        asm::dmb();
+        checkpoint_size.write(stack_size+4+16*4 +4);
+        asm::dmb();
 
         loop{
-            let mut offset = ptr::read_volatile(flash_start_address as *const u32);
+            let mut offset = ptr::read_volatile(flash_start_address.read() as *const u32);
             if offset == 0xffff_ffff{
                 break;
             }
-            flash_start_address+=offset; 
-            if flash_start_address + checkpoint_size >= flash_end_address{
+            flash_start_address.write(flash_start_address.read() + offset); 
+            if flash_start_address.read() + checkpoint_size.read() >= flash_end_address.read(){
                 erase_all(&mut flash);
                // flash_start_address = 0x0801_00A0;
             }
         }
-
+        asm::dmb();
         //write the size of packet at the begining of the packet
-        write_to_flash(&mut flash,  flash_start_address as u32, checkpoint_size as u32); 
-        flash_start_address+=4;
+        write_to_flash(&mut flash,  (flash_start_address.read()) as u32, checkpoint_size.read() as u32); 
+        flash_start_address.write(flash_start_address.read()+4);
+        asm::dmb();
+           // Code that involves Flash write
     //      if offset == 0xffff_ffff {
     //   // stack_size + 4(0xffff_ffff to signal end of stack) + 16*4(store registers) + 4 (size of a packet)
     //         write_to_flash(&mut flash,  flash_start_address as u32, checkpoint_size+1-1  as u32);
@@ -350,20 +361,22 @@ fn checkpoint(){
     //         }
     //         write_to_flash(&mut flash,  0x0801_0000 as u32, offset+checkpoint_size+1-1  as u32);
     //      }
-         
-
+    asm::dmb(); 
          while start_address >= end_address{
-            let data = core::ptr::read_volatile(start_address as * const u32);
-            write_to_flash(&mut flash,  flash_start_address as u32, data as u32);
-            flash_start_address = flash_start_address + 4;
+            let mut data = Volatile::new(0u32);
+            data.write(core::ptr::read_volatile(start_address as * const u32));
+            write_to_flash(&mut flash,  flash_start_address.read() as u32, data.read() as u32);
+            flash_start_address.write(flash_start_address.read() +1* 4);
             // Move to the next address based on the size of the type
             start_address = start_address-4;
             
         }
-    
+        asm::dmb();
+    asm::dmb();
     //mark the end of the stack
-    write_to_flash(&mut flash,  flash_start_address as u32, 0xffff_ffff as u32);
-    flash_start_address +=4;
+    write_to_flash(&mut flash,  (flash_start_address.read()) as u32, 0xffff_ffff as u32);
+    flash_start_address.write(flash_start_address.read() + 4);
+    asm::dmb();
 
     // for i in 0..15{
     //     write_to_flash(&mut flash,  0x0800_9060 as u32, r0_value as u32);
@@ -371,22 +384,22 @@ fn checkpoint(){
     // }
 
 
-    // write_to_flash(&mut flash,  flash_start_address as u32, r0_value as u32);
-    // write_to_flash(&mut flash,  flash_start_address+4 as u32, r1_value as u32);
-    // write_to_flash(&mut flash,  flash_start_address+4*2 as u32, r2_value as u32);
-    // write_to_flash(&mut flash,  flash_start_address+4*3 as u32, r3_value as u32);
-    // write_to_flash(&mut flash,  flash_start_address+4*4 as u32, r4_value as u32);
-    // write_to_flash(&mut flash,  flash_start_address+4*5 as u32, r5_value as u32);
-    // write_to_flash(&mut flash,  flash_start_address+4*6 as u32, r6_value as u32);
-    // write_to_flash(&mut flash,  flash_start_address+4*7 as u32, r7_value as u32);
-    // write_to_flash(&mut flash,  flash_start_address+4*8 as u32, r8_value as u32);
-    // write_to_flash(&mut flash,  flash_start_address+4*9 as u32, r9_value as u32);
-    // write_to_flash(&mut flash,  flash_start_address+4*10 as u32, r10_value as u32);
-    // write_to_flash(&mut flash,  flash_start_address+4*11 as u32, r11_value as u32);
-    // write_to_flash(&mut flash,  flash_start_address+4*12 as u32, r12_value as u32);
-    // write_to_flash(&mut flash,  flash_start_address+4*13 as u32, r13_sp as u32);
-    // write_to_flash(&mut flash,  flash_start_address+4*14 as u32, r14_lr as u32);
-    // write_to_flash(&mut flash,  flash_start_address+4*15 as u32, r15_pc as u32);
+    write_to_flash(&mut flash,  flash_start_address.read() as u32, r0_value as u32);
+    write_to_flash(&mut flash,  flash_start_address.read()+4 as u32, r1_value as u32);
+    write_to_flash(&mut flash,  flash_start_address.read()+8 as u32, r2_value as u32);
+    write_to_flash(&mut flash,  flash_start_address.read()+12 as u32, r3_value as u32);
+    write_to_flash(&mut flash,  flash_start_address.read()+16 as u32, r4_value as u32);
+    write_to_flash(&mut flash,  flash_start_address.read()+20 as u32, r5_value as u32);
+    write_to_flash(&mut flash,  flash_start_address.read()+24 as u32, r6_value as u32);
+    write_to_flash(&mut flash,  flash_start_address.read()+28 as u32, r7_value as u32);
+    write_to_flash(&mut flash,  flash_start_address.read()+32 as u32, r8_value as u32);
+    write_to_flash(&mut flash,  flash_start_address.read()+36 as u32, r9_value as u32);
+    write_to_flash(&mut flash,  flash_start_address.read()+40 as u32, r10_value as u32);
+    write_to_flash(&mut flash,  flash_start_address.read()+44 as u32, r11_value as u32);
+    write_to_flash(&mut flash,  flash_start_address.read()+48 as u32, r12_value as u32);
+    write_to_flash(&mut flash,  flash_start_address.read()+52 as u32, r13_sp as u32);
+    write_to_flash(&mut flash,  flash_start_address.read()+56 as u32, r14_lr as u32);
+    write_to_flash(&mut flash,  flash_start_address.read()+60 as u32, r15_pc as u32);
 
     }     
 }
@@ -402,18 +415,35 @@ fn erase_all(flash: &mut FLASH){
 }
 fn restore()->bool{
     unsafe {
+        let mut flash_start_address = 0x0801_0000;
         let packet_size = ptr::read_volatile(0x0801_0000 as *const u32);
         //let r0_flash = ptr::read_volatile(0x0800_9060 as *const u32);
         if packet_size == 0xffff_ffff {
             return false
         }
-        let mut end_address = 0x0801_0004 + packet_size;
-        let recent_frame_size: u32 = ptr::read_volatile(end_address as *const u32);
-        let mut recent_frame_start_address = end_address - recent_frame_size;
+        if  ptr::read_volatile((flash_start_address + packet_size) as *const u32)==0xffff_ffff{
+            return  false;
+        }
+
+        let mut offset:u32 = 0;
+        loop{
+             offset = ptr::read_volatile(flash_start_address  as *const u32);
+             
+            if  ptr::read_volatile((flash_start_address + offset) as *const u32) == 0xffff_ffff{
+                break;
+            }
+    
+            flash_start_address+=offset;
+        }
+        flash_start_address+=4;
+       
+        // let mut end_address = 0x0801_0004 + packet_size;
+        // let recent_frame_size: u32 = ptr::read_volatile(end_address as *const u32);
+        // let mut recent_frame_start_address = end_address - recent_frame_size;
 
         asm!(
             "mov r0, {0}",
-            in(reg) recent_frame_start_address
+            in(reg) flash_start_address
         );
 
         //set sp to 0x0200_fffc
@@ -434,6 +464,8 @@ fn restore()->bool{
             2:");     
 
         asm!("adds r0, r0, #4");
+        asm!("adds r0, r0, #4");
+
         asm!( "LDR r1, [r0]");
         asm!("Push {{r1}}");
 
@@ -468,16 +500,13 @@ fn restore()->bool{
         asm!( "LDR r10, [r0]");
 
         asm!("adds r0, r0, #4");
-        asm!( "LDR r10, [r0]");
-
-        asm!("adds r0, r0, #4");
         asm!( "LDR r11, [r0]");
 
         asm!("adds r0, r0, #4");
         asm!( "LDR r12, [r0]");
 
         asm!("adds r0, r0, #4");
-        //asm!( "LDR r13, [r0]"); //no need to do this
+       // asm!( "LDR r13, [r0]"); //no need to do this
 
         asm!("adds r0, r0, #4");
         asm!( "LDR r14, [r0]");
@@ -583,10 +612,10 @@ fn delete_pg(page: u32){
 
 #[no_mangle]
 pub extern "C" fn main() -> ! {
+  
   //delete_pg(0x0801_0000 as u32);
   
-  //restore();
-
+ restore();
 
     unsafe {
     asm!("mov r0, #10
