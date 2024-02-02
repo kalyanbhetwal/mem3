@@ -335,7 +335,7 @@ fn checkpoint(){
             flash_start_address.write(flash_start_address.read() + offset); 
             if flash_start_address.read() + checkpoint_size.read() >= flash_end_address.read(){
                 erase_all(&mut flash);
-               // flash_start_address = 0x0801_00A0;
+               flash_start_address = Volatile::new(0x0801_0000);
             }
         }
         asm::dmb();
@@ -513,91 +513,6 @@ fn restore()->bool{
 
         asm!("POP {{r0}}");
         asm!("mov r15, r14");
-
-        // asm!(
-        //     "LDR r1, [{}]", 
-        //     in(reg) 0x0800_9064 as u32
-        // );
-        // // asm!("Push {{r1}}");
-
-        // asm!(
-        //     "LDR r2, [{}]", 
-        //     in(reg) 0x0800_9068 as u32
-        // );
-        // // asm!("Push {{r2}}");
-
-        // asm!(
-        //     "LDR r3, [{}]", 
-        //     in(reg) 0x0800_906C as u32
-        // );
-        // // asm!("Push {{r3}}");
-
-        // asm!(
-        //     "LDR r4, [{}]", 
-        //     in(reg) 0x0800_9070 as u32
-        // );
-
-        // // asm!("Push {{r4}}");
-
-        // asm!(
-        //     "LDR r5, [{}]", 
-        //     in(reg) 0x0800_9074 as u32
-        // );  
-        // // asm!("Push {{r5}}");    
-        
-        // asm!(
-        //     "LDR r6, [{}]", 
-        //     in(reg) 0x0800_9078 as u32
-        // );  
-        // // asm!("Push {{r6}}");
-
-        // asm!(
-        //     "LDR r7, [{}]", 
-        //     in(reg) 0x0800_907C as u32
-        // );
-
-        // asm!(
-        //     "LDR r8, [{}]", 
-        //     in(reg) 0x0800_9084 as u32
-        // );
-        
-        // asm!(
-        //     "LDR r9, [{}]", 
-        //     in(reg) 0x0800_9088 as u32
-        // );  
-
-        // asm!(
-        //     "LDR r10, [{}]", 
-        //     in(reg) 0x0800_908C as u32
-        // );  
-
-        // asm!(
-        //     "LDR r11, [{}]", 
-        //     in(reg) 0x0800_9090 as u32
-        // );
-        
-        // asm!(
-        //     "LDR r12, [{}]", 
-        //     in(reg) 0x0800_9094 as u32
-        // );
-
-        // asm!(
-        //     "LDR sp, [{}]", 
-        //     in(reg) 0x0800_9098 as u32
-        // );
-
-        // asm!(
-        //     "LDR r0, [{}]", 
-        //     in(reg) 0x0800_909C as u32
-        // );
-        // asm!("Push {{r0}}");
-        
-        // asm!(
-        //     "LDR r0, [{}]", 
-        //     in(reg) 0x0800_9060 as u32
-        // );
-
-        // asm!("POP {{PC}}");   // restore LR to PC
     }
     return true;
 }
