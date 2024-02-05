@@ -551,6 +551,33 @@ pub extern "C" fn main() -> ! {
         }
   
 
+        unsafe {
+            asm!("mov r0, #10
+                  mov r1, #20
+                  mov r2, #30
+            "); 
+            }
+            checkpoint();
+        
+            unsafe {
+                asm!("add r0, r1"); 
+                }
+
+
+  
+    unsafe {
+    asm!("mov r0, #10
+          mov r1, #20
+          mov r2, #30
+    "); 
+    }
+    checkpoint();
+
+    unsafe {
+        asm!("add r0, r1"); 
+        }
+          
+
     // exit QEMU
     // NOTE do not run this on hardware; it can corrupt OpenOCD state
     //debug::exit(debug::EXIT_SUCCESS);
