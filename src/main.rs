@@ -284,12 +284,16 @@ fn checkpoint(){
         );
     }
     
-    let dp = Peripherals::take().unwrap();
+    //let dp = Peripherals::take().unwrap();
+
+    unsafe{
+    let dp = Peripherals::steal();
+
     let mut flash= dp.FLASH;
     unlock(& mut flash);
     wait_ready(&flash);
 
-    unsafe{
+   
         //let  start_address: u32 = 0x2000_fffc as u32;
         let mut start_address:u32;
         let  end_address = r13_sp;
@@ -400,6 +404,7 @@ fn checkpoint(){
     write_to_flash(&mut flash,  flash_start_address.read()+52 as u32, r13_sp as u32);
     write_to_flash(&mut flash,  flash_start_address.read()+56 as u32, r14_lr as u32);
     write_to_flash(&mut flash,  flash_start_address.read()+60 as u32, r15_pc as u32);
+    drop(flash);
 
     }     
 }
@@ -518,19 +523,21 @@ fn restore()->bool{
 }
 
 fn delete_pg(page: u32){
-    let dp = Peripherals::take().unwrap();
-    let mut flash= dp.FLASH;
+    unsafe{
+    let mut dp = Peripherals::steal();
+    let mut flash= &mut dp.FLASH;
     unlock(& mut flash); 
     wait_ready(&flash);
     erase_page(&mut flash,  page);
+    }
 }
 
 #[no_mangle]
 pub extern "C" fn main() -> ! {
   
-  //delete_pg(0x0801_0000 as u32);
+   //delete_pg(0x0801_0000 as u32);
   
- restore();
+   restore();
 
     unsafe {
     asm!("mov r0, #10
@@ -551,20 +558,19 @@ pub extern "C" fn main() -> ! {
         }
   
 
-        unsafe {
-            asm!("mov r0, #10
-                  mov r1, #20
-                  mov r2, #30
-            "); 
-            }
-            checkpoint();
-        
-            unsafe {
-                asm!("add r0, r1"); 
-                }
+    unsafe {
+        asm!("mov r0, #10
+                mov r1, #20
+                mov r2, #30
+        "); 
+        }
 
+    checkpoint();
 
-  
+    unsafe {
+        asm!("add r0, r1"); 
+        }
+
     unsafe {
     asm!("mov r0, #10
           mov r1, #20
