@@ -431,8 +431,12 @@ fn restore()->bool{
         }
 
         let mut offset:u32 = 0;
+        // think about multiple conditions where it could break
+        //1. There could multiple failed checkpoints before a successful checkpoint.
+        //2. The last checkpoint could be a failed(incomplete) checkpoint.
         loop{
-             offset = ptr::read_volatile(flash_start_address  as *const u32);
+            
+            offset = ptr::read_volatile(flash_start_address  as *const u32);
              
             if  ptr::read_volatile((flash_start_address + offset) as *const u32) == 0xffff_ffff{
                 break;
