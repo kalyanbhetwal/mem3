@@ -2,9 +2,7 @@
 #![no_main]
 #![no_std]
 
-use core::{borrow::BorrowMut, fmt::Result};
 use core::ptr;
-
 use cortex_m::asm::{nop, self};
 use panic_halt as _;
 
@@ -310,22 +308,6 @@ fn checkpoint(){
          let mut flash_start_address = Volatile::new(0x0801_0000);
          let mut flash_end_address = Volatile::new(0x0807_FFFF);    
 
-    //      asm!("movw r0, 0x00e0
-    //      movt r0, 0x0801");
-
-    //     asm!(
-    //         "MOV {0}, r0",
-    //         out(reg) flash_start_address
-    //     );
-
-    //     asm!("movw r0, 0xFFFF
-    //     movt r0, 0x0807");
-
-    //    asm!(
-    //        "MOV {0}, r0",
-    //        out(reg) flash_end_address
-    //    );
-
         let mut checkpoint_size= Volatile::new(0u32);
         asm::dmb();
         checkpoint_size.write(stack_size+4+16*4 +4);
@@ -405,7 +387,6 @@ fn checkpoint(){
     write_to_flash(&mut flash,  flash_start_address.read()+56 as u32, r14_lr as u32);
     write_to_flash(&mut flash,  flash_start_address.read()+60 as u32, r15_pc as u32);
     drop(flash);
-
     }     
 }
 
