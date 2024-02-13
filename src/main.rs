@@ -507,6 +507,25 @@ fn restore()->bool{
     return true;
 }
 
+fn test_checkpoint(){
+    unsafe {
+        asm!("mov r0, #10
+              mov r1, #20
+              mov r2, #30
+              mov r3, #40
+              mov r4, #50
+              mov r5, #20
+              mov r6, #30
+              mov r7, #40
+              mov r8, #50
+        "); 
+        }
+    checkpoint();
+    unsafe {
+        asm!("add r0, r1"); 
+        }
+}
+
 fn delete_pg(page: u32){
     unsafe{
     let mut dp = Peripherals::steal();
@@ -567,6 +586,8 @@ pub extern "C" fn main() -> ! {
     unsafe {
         asm!("add r0, r1"); 
         }
+
+    test_checkpoint();
           
 
     // exit QEMU
