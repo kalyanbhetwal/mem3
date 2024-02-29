@@ -13,7 +13,7 @@ use stm32f3xx_hal_v2::{flash::ACR, pac::Peripherals, pac::FLASH};
 
 use volatile::Volatile;
 use core::sync::atomic::{compiler_fence, Ordering};
-
+use stm32f3xx_hal_v2::hal::blocking::rng::Read;
 
 const UNLOCK_KEY1: u32 = 0x4567_0123;
 const UNLOCK_KEY2: u32 = 0xCDEF_89AB;
@@ -535,60 +535,27 @@ fn delete_pg(page: u32){
     erase_page(&mut flash,  page);
     }
 }
+fn checkpoint_variables(x :u32, y: u32){
+
+}
 
 #[no_mangle]
 pub extern "C" fn main() -> ! {
+    //delete_pg(0x0801_0000 as u32);
+    let mut x = 1;
+    let mut y = 3;
+    let mut z = 2;
   
-   //delete_pg(0x0801_0000 as u32);
-  
-   restore();
+    //checkpoint_variables(y, z);
+    let mut t = 5; //change to assign a random number
 
-    unsafe {
-    asm!("mov r0, #10
-          mov r1, #20
-          mov r2, #30
-          mov r3, #40
-          mov r4, #50
-          mov r5, #20
-          mov r6, #30
-          mov r7, #40
-          mov r8, #50
-    "); 
+    if t >= 5{
+        x = 6;
+        y = 7;
+    }else{
+        x = z;
+        z = 8;
     }
-    checkpoint();
-
-    unsafe {
-        asm!("add r0, r1"); 
-        }
-  
-
-    unsafe {
-        asm!("mov r0, #10
-                mov r1, #20
-                mov r2, #30
-        "); 
-        }
-
-    checkpoint();
-
-    unsafe {
-        asm!("add r0, r1"); 
-        }
-
-    unsafe {
-    asm!("mov r0, #10
-          mov r1, #20
-          mov r2, #30
-    "); 
-    }
-    checkpoint();
-
-    unsafe {
-        asm!("add r0, r1"); 
-        }
-
-    test_checkpoint();
-          
 
     // exit QEMU
     // NOTE do not run this on hardware; it can corrupt OpenOCD state
