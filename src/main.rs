@@ -536,6 +536,7 @@ fn delete_pg(page: u32){
     }
 }
 fn checkpoint_variables(x :u32, y: u32){
+    //undo updates or redo updates
 
 }
 
@@ -546,7 +547,7 @@ pub extern "C" fn main() -> ! {
     let mut y = 3;
     let mut z = 2;
   
-    //checkpoint_variables(y, z);
+    //checkpoint_variables(y, z); // y and z are the exclusive may write variables
     let mut t = 5; //change to assign a random number
 
     if t >= 5{
