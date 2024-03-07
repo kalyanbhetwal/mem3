@@ -1,4 +1,4 @@
-#![allow(unsafe_code, unused)]
+#![allow(unsafe_code, unused, non_upper_case_globals)]
 #![no_main]
 #![no_std]
 
@@ -14,6 +14,12 @@ use stm32f3xx_hal_v2::{flash::ACR, pac::Peripherals, pac::FLASH};
 use volatile::Volatile;
 use core::sync::atomic::{compiler_fence, Ordering};
 use stm32f3xx_hal_v2::hal::blocking::rng::Read;
+
+static mut x:i32 = 1;
+static mut y:i32 = 3;
+static mut z:i32 = 2;
+static mut t:i32 = 5; //change to assign a random number
+
 
 const UNLOCK_KEY1: u32 = 0x4567_0123;
 const UNLOCK_KEY2: u32 = 0xCDEF_89AB;
@@ -535,29 +541,26 @@ fn delete_pg(page: u32){
     erase_page(&mut flash,  page);
     }
 }
-fn checkpoint_variables(x :u32, y: u32){
-    //undo updates or redo updates
+//these variables are stored at the starting address of the RAM.
+fn checkpoint_variables(y_ptr: &mut i32, z_ptr:& mut i32){
+      //undo updates or redo updates
+
 
 }
 
 #[no_mangle]
 pub extern "C" fn main() -> ! {
     //delete_pg(0x0801_0000 as u32);
-    let mut x = 1;
-    let mut y = 3;
-    let mut z = 2;
-  
-    //checkpoint_variables(y, z); // y and z are the exclusive may write variables
-    let mut t = 5; //change to assign a random number
-
-    if t >= 5{
-        x = 6;
-        y = 7;
-    }else{
-        x = z;
-        z = 8;
+    unsafe{
+        checkpoint_variables(&mut y, &mut z); // y and z are the exclusive may write variables
+        if t >= 5{
+            x = 6;
+            y = 7;
+        }else{
+            x = z;
+            z = 8;
+        }
     }
-
     // exit QEMU
     // NOTE do not run this on hardware; it can corrupt OpenOCD state
     //debug::exit(debug::EXIT_SUCCESS);
