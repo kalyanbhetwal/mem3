@@ -9,20 +9,62 @@ use panic_halt as _;
 use cortex_m_rt::entry;
 use::core::arch::asm;
 use cortex_m_semihosting::{debug, hprintln};
-use stm32f3xx_hal_v2::{flash::ACR, pac::Peripherals, pac::FLASH};
+use stm32f3xx_hal_v2::{self as hal, pac, prelude::*,flash::ACR, pac::Peripherals, pac::FLASH};
 
 use volatile::Volatile;
 use core::sync::atomic::{compiler_fence, Ordering};
 use stm32f3xx_hal_v2::hal::blocking::rng::Read;
 
-static mut x:i32 = 1;
-static mut y:i32 = 3;
-static mut z:i32 = 2;
-static mut t:i32 = 5; //change to assign a random number
+static mut x:u8 = 1;
+static mut y:u8 = 3;
+static mut z:u8 = 2;
+static mut t:u8 = 5; //change to assign a random number
 
 
 const UNLOCK_KEY1: u32 = 0x4567_0123;
 const UNLOCK_KEY2: u32 = 0xCDEF_89AB;
+const FRAM_ADDRESS:u8 = 0x50;
+
+const MEMORY_ADDRESS_1: u16 = 0x0000; //x Address to write/read data to/from
+const MEMORY_ADDRESS_2: u16 = 0x0001; //y Address to write/read data to/from
+const MEMORY_ADDRESS_3: u16 = 0x0003; //z Address to write/read data to/from
+const MEMORY_ADDRESS_4: u16 = 0x0004; //t Address to write/read data to/from
+
+fn init_i2c() -> hal::i2c::I2c<pac::I2C1, (stm32f3xx_hal_v2::gpio::gpiob::PB8<hal::gpio::AF4>, stm32f3xx_hal_v2::gpio::gpiob::PB9<hal::gpio::AF4>)> {
+    unsafe{
+    let dp =  Peripherals::steal();
+    
+    let mut flash = dp.FLASH.constrain();
+    let mut rcc = dp.RCC.constrain();
+    let clocks = rcc.cfgr.freeze(&mut flash.acr);
+
+    let mut gpiob = dp.GPIOB.split(&mut rcc.ahb);
+
+    let scl = gpiob.pb8.into_af4(&mut gpiob.moder, &mut gpiob.afrh);
+    let sda = gpiob.pb9.into_af4(&mut gpiob.moder, &mut gpiob.afrh);
+
+    let pins = (scl, sda);
+
+    let mut i2c = hal::i2c::I2c::new(dp.I2C1, pins, 100.khz(), clocks, &mut rcc.apb1);
+    i2c
+    }
+}
+
+fn write_data(i2c: &mut hal::i2c::I2c<pac::I2C1, (stm32f3xx_hal_v2::gpio::gpiob::PB8<hal::gpio::AF4>, stm32f3xx_hal_v2::gpio::gpiob::PB9<hal::gpio::AF4>)>, address: u8, memory_address: u16, value: u8) {
+    let buff = [
+        ((memory_address >> 8) & 0xFF) as u8,
+        (memory_address & 0xFF) as u8,
+        value
+    ];
+
+    i2c.write(address, &buff).unwrap();
+}
+
+fn read_data(i2c: &mut hal::i2c::I2c<pac::I2C1, (stm32f3xx_hal_v2::gpio::gpiob::PB8<hal::gpio::AF4>, stm32f3xx_hal_v2::gpio::gpiob::PB9<hal::gpio::AF4>)>, address: u8, memory_address: u16, data: &mut [u8]) {
+    let memory_address_bytes = [(memory_address >> 8) as u8, memory_address as u8];
+    i2c.write_read(address, &memory_address_bytes, data).unwrap();
+}
+
 
 fn unlock(flash: &mut FLASH) ->bool{
 
@@ -542,25 +584,79 @@ fn delete_pg(page: u32){
     }
 }
 //these variables are stored at the starting address of the RAM.
-fn checkpoint_variables(y_ptr: &mut i32, z_ptr:& mut i32){
+fn checkpoint_variables(y_ptr: &mut u8, z_ptr:& mut u8){
       //undo updates or redo updates
-
-
 }
 
 #[no_mangle]
 pub extern "C" fn main() -> ! {
     //delete_pg(0x0801_0000 as u32);
+//     let mut i2c = init_i2c();
+
+//     let value = 0x01;
+//     let buff = [
+//        ((MEMORY_ADDRESS_1 >> 8) & 0xFF) as u8,
+//        (MEMORY_ADDRESS_1 & 0xFF) as u8,
+//        value
+//    ];
+
+//     i2c.write(FRAM_ADDRESS, &buff);
+
+//     let value = 0x03;
+//     let buff = [
+//        ((MEMORY_ADDRESS_2 >> 8) & 0xFF) as u8,
+//        (MEMORY_ADDRESS_2 & 0xFF) as u8,
+//        value
+//    ];
+
+//     i2c.write(FRAM_ADDRESS, &buff);
+
+//     let value = 0x02;
+//     let buff = [
+//        ((MEMORY_ADDRESS_2 >> 8) & 0xFF) as u8,
+//        (MEMORY_ADDRESS_2 & 0xFF) as u8,
+//        value
+//    ];
+
+//     i2c.write(FRAM_ADDRESS, &buff);
+
+//     let value = 0x05;
+//     let buff = [
+//        ((MEMORY_ADDRESS_2 >> 8) & 0xFF) as u8,
+//        (MEMORY_ADDRESS_2 & 0xFF) as u8,
+//        value
+//    ];
+
+//     i2c.write(FRAM_ADDRESS, &buff);
+
     unsafe{
         checkpoint_variables(&mut y, &mut z); // y and z are the exclusive may write variables
-        if t >= 5{
+        t = 10;
+        if t>=5{
             x = 6;
             y = 7;
         }else{
             x = z;
-            z = 8;
+            x = 8;
         }
+        
+        /* 
+        if t >= 5{
+            i2c.write(FRAM_ADDRESS, &[((MEMORY_ADDRESS_1 >> 8) & 0xFF) as u8
+                                        ,(MEMORY_ADDRESS_1 & 0xFF) as u8, 6u8]);//x = 6;
+            i2c.write(FRAM_ADDRESS, &[((MEMORY_ADDRESS_2 >> 8) & 0xFF) as u8
+            ,(MEMORY_ADDRESS_1 & 0xFF) as u8, 6u8]);//y = 7;
+        }else{
+
+          //i2c.write_read(address, bytes, buffer);//x = z;
+          i2c.write(FRAM_ADDRESS, &[((MEMORY_ADDRESS_3 >> 8) & 0xFF) as u8
+          ,(MEMORY_ADDRESS_3 & 0xFF) as u8, 6u8]);
+            //z = 8;
+        }
+        */
     }
+
+    
     // exit QEMU
     // NOTE do not run this on hardware; it can corrupt OpenOCD state
     //debug::exit(debug::EXIT_SUCCESS);
