@@ -1,7 +1,7 @@
 #![allow(unsafe_code, unused, non_upper_case_globals)]
 #![no_main]
 #![no_std]
-
+use core::mem;
 use core::ptr;
 use cortex_m::asm::{nop, self};
 use panic_halt as _;
@@ -20,15 +20,16 @@ static mut y:u8 = 3;
 static mut z:u8 = 2;
 static mut t:u8 = 5; //change to assign a random number
 
-
 const UNLOCK_KEY1: u32 = 0x4567_0123;
 const UNLOCK_KEY2: u32 = 0xCDEF_89AB;
 const FRAM_ADDRESS:u8 = 0x50;
 
 const MEMORY_ADDRESS_1: u16 = 0x0000; //x Address to write/read data to/from
 const MEMORY_ADDRESS_2: u16 = 0x0001; //y Address to write/read data to/from
-const MEMORY_ADDRESS_3: u16 = 0x0003; //z Address to write/read data to/from
-const MEMORY_ADDRESS_4: u16 = 0x0004; //t Address to write/read data to/from
+const MEMORY_ADDRESS_3: u16 = 0x0002; //z Address to write/read data to/from
+const MEMORY_ADDRESS_4: u16 = 0x0003; //t Address to write/read data to/from
+
+static  mut back_up_address:u16 = 0x0100; //location to checkpoint data
 
 fn init_i2c() -> hal::i2c::I2c<pac::I2C1, (stm32f3xx_hal_v2::gpio::gpiob::PB8<hal::gpio::AF4>, stm32f3xx_hal_v2::gpio::gpiob::PB9<hal::gpio::AF4>)> {
     unsafe{
@@ -583,61 +584,47 @@ fn delete_pg(page: u32){
     erase_page(&mut flash,  page);
     }
 }
-//these variables are stored at the starting address of the RAM.
-fn checkpoint_variables(y_ptr: &mut u8, z_ptr:& mut u8){
-      //undo updates or redo updates
+
+
+fn checkpoint_globals<T>(i2c: &mut hal::i2c::I2c<pac::I2C1, (stm32f3xx_hal_v2::gpio::gpiob::PB8<hal::gpio::AF4>, stm32f3xx_hal_v2::gpio::gpiob::PB9<hal::gpio::AF4>)>, adrs: *const T, len: usize) {
+    unsafe {
+    let mut buff = [0;100];
+    buff[0]= ((back_up_address >> 8) & 0xFF) as u8;
+    buff[1] = (back_up_address & 0xFF) as u8;
+    
+    for i in 0..len{
+       let byte_ptr = adrs as *const u8;
+       buff[i+2] =  *byte_ptr.add(i);
+    }
+    i2c.write(FRAM_ADDRESS, &buff);
+    back_up_address= back_up_address +len as u16;
+    }
 }
 
 #[no_mangle]
 pub extern "C" fn main() -> ! {
     //delete_pg(0x0801_0000 as u32);
-//     let mut i2c = init_i2c();
-
-//     let value = 0x01;
-//     let buff = [
-//        ((MEMORY_ADDRESS_1 >> 8) & 0xFF) as u8,
-//        (MEMORY_ADDRESS_1 & 0xFF) as u8,
-//        value
-//    ];
-
-//     i2c.write(FRAM_ADDRESS, &buff);
-
-//     let value = 0x03;
-//     let buff = [
-//        ((MEMORY_ADDRESS_2 >> 8) & 0xFF) as u8,
-//        (MEMORY_ADDRESS_2 & 0xFF) as u8,
-//        value
-//    ];
-
-//     i2c.write(FRAM_ADDRESS, &buff);
-
-//     let value = 0x02;
-//     let buff = [
-//        ((MEMORY_ADDRESS_2 >> 8) & 0xFF) as u8,
-//        (MEMORY_ADDRESS_2 & 0xFF) as u8,
-//        value
-//    ];
-
-//     i2c.write(FRAM_ADDRESS, &buff);
-
-//     let value = 0x05;
-//     let buff = [
-//        ((MEMORY_ADDRESS_2 >> 8) & 0xFF) as u8,
-//        (MEMORY_ADDRESS_2 & 0xFF) as u8,
-//        value
-//    ];
-
-//     i2c.write(FRAM_ADDRESS, &buff);
+    let mut i2c = init_i2c();
 
     unsafe{
-        checkpoint_variables(&mut y, &mut z); // y and z are the exclusive may write variables
+        //checkpoint_variables(&mut y, &mut z); // y and z are the exclusive may write variables
+        checkpoint_globals(&mut i2c, &y as *const u8, mem::size_of_val(&y));
+        checkpoint_globals(&mut i2c, &z as *const u8, mem::size_of_val(&z));
+
         t = 10;
         if t>=5{
+
+            i2c.write(FRAM_ADDRESS, &[((0x0000 >> 8) & 0xFF) as u8 ,(0x0000 & 0xFF) as u8, 6u8]);//x = 6;
+            
             x = 6;
+            i2c.write(FRAM_ADDRESS, &[((0x0001 >> 8) & 0xFF) as u8 ,(0x0001 & 0xFF) as u8, 7u8]);//y = 7;
             y = 7;
         }else{
-            x = z;
-            x = 8;
+            let mut data = [0u8];
+            i2c.write_read(FRAM_ADDRESS, &[(0x0002 >> 8) as u8, 0x0002 as u8], &mut data).unwrap();
+            x = data[0];//x = z;
+            z = 8;
+            i2c.write(FRAM_ADDRESS, &[((0x0002 >> 8) & 0xFF) as u8 ,(0x0002 & 0xFF) as u8, 8u8]);
         }
         
         /* 
