@@ -354,7 +354,7 @@ fn checkpoint(){
 
          let stack_size = (start_address - end_address) + 4;
         // leaving first xyz K for program i.e start at 0x0801_0000
-         let mut flash_start_address = Volatile::new(0x0801_0000);
+         let mut flash_start_address = Volatile::new(0x0803_0000);
          let mut flash_end_address = Volatile::new(0x0807_FFFF);    
 
         let mut checkpoint_size= Volatile::new(0u32);
@@ -450,8 +450,8 @@ fn erase_all(flash: &mut FLASH){
 }
 fn restore()->bool{
     unsafe {
-        let mut flash_start_address = 0x0801_0000;
-        let packet_size = ptr::read_volatile(0x0801_0000 as *const u32);
+        let mut flash_start_address = 0x0803_0000;
+        let packet_size = ptr::read_volatile(0x0803_0000 as *const u32);
         //let r0_flash = ptr::read_volatile(0x0800_9060 as *const u32);
         if packet_size == 0xffff_ffff {
             return false
@@ -586,6 +586,18 @@ fn delete_pg(page: u32){
 }
 
 
+fn restore_globals<T>(i2c: &mut hal::i2c::I2c<pac::I2C1, (stm32f3xx_hal_v2::gpio::gpiob::PB8<hal::gpio::AF4>, stm32f3xx_hal_v2::gpio::gpiob::PB9<hal::gpio::AF4>)>, adrs: *const T, len: usize) {
+    unsafe {
+        x  = 6;
+        let mut data = [0u8; 20];
+        i2c.write_read(FRAM_ADDRESS, &[(back_up_address >> 8) as u8, back_up_address as u8], &mut data).unwrap();
+        
+        let dp = adrs as *mut u8;
+        ptr::copy_nonoverlapping(data.as_ptr(), dp, len);
+        back_up_address= back_up_address +len as u16;
+    }
+}
+
 fn checkpoint_globals<T>(i2c: &mut hal::i2c::I2c<pac::I2C1, (stm32f3xx_hal_v2::gpio::gpiob::PB8<hal::gpio::AF4>, stm32f3xx_hal_v2::gpio::gpiob::PB9<hal::gpio::AF4>)>, adrs: *const T, len: usize) {
     unsafe {
     let mut buff = [0;100];
@@ -603,13 +615,23 @@ fn checkpoint_globals<T>(i2c: &mut hal::i2c::I2c<pac::I2C1, (stm32f3xx_hal_v2::g
 
 #[no_mangle]
 pub extern "C" fn main() -> ! {
-    //delete_pg(0x0801_0000 as u32);
+    //delete_pg(0x0803_0000 as u32);  //0x0807_F800
     let mut i2c = init_i2c();
 
     unsafe{
+        restore_globals(&mut i2c, &y as *const u8, mem::size_of_val(&y));
+        restore_globals(&mut i2c, &z as *const u8, mem::size_of_val(&z));
+    }
+
+    restore();
+    unsafe{
+        let c = y+z;
         //checkpoint_variables(&mut y, &mut z); // y and z are the exclusive may write variables
         checkpoint_globals(&mut i2c, &y as *const u8, mem::size_of_val(&y));
         checkpoint_globals(&mut i2c, &z as *const u8, mem::size_of_val(&z));
+        checkpoint();
+
+        let d = c *2;
 
         t = 10;
         if t>=5{
@@ -626,23 +648,8 @@ pub extern "C" fn main() -> ! {
             z = 8;
             i2c.write(FRAM_ADDRESS, &[((0x0002 >> 8) & 0xFF) as u8 ,(0x0002 & 0xFF) as u8, 8u8]);
         }
-        
-        /* 
-        if t >= 5{
-            i2c.write(FRAM_ADDRESS, &[((MEMORY_ADDRESS_1 >> 8) & 0xFF) as u8
-                                        ,(MEMORY_ADDRESS_1 & 0xFF) as u8, 6u8]);//x = 6;
-            i2c.write(FRAM_ADDRESS, &[((MEMORY_ADDRESS_2 >> 8) & 0xFF) as u8
-            ,(MEMORY_ADDRESS_1 & 0xFF) as u8, 6u8]);//y = 7;
-        }else{
-
-          //i2c.write_read(address, bytes, buffer);//x = z;
-          i2c.write(FRAM_ADDRESS, &[((MEMORY_ADDRESS_3 >> 8) & 0xFF) as u8
-          ,(MEMORY_ADDRESS_3 & 0xFF) as u8, 6u8]);
-            //z = 8;
-        }
-        */
     }
-
+  
     
     // exit QEMU
     // NOTE do not run this on hardware; it can corrupt OpenOCD state
