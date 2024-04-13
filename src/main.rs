@@ -516,42 +516,109 @@ fn checkpoint_globals<T>(i2c: &mut hal::i2c::I2c<pac::I2C1, (stm32f3xx_hal_v2::g
     }
 }
 
+macro_rules! copy_slice {
+    ($data:expr, $dp:expr, $len:expr) => {
+        unsafe {
+            ptr::copy_nonoverlapping($data.as_ptr(), $dp, $len);
+        }
+    };
+}
+
+macro_rules! restore_globals {
+    ($first:expr, $mem_locs:expr, $sizes:expr) => {{
+        // Allocate memory for the reading data array
+        let mut buff = [0;50];
+        unsafe {
+            let mut data = [0u8; 50];
+            $first.write_read(FRAM_ADDRESS, &[(back_up_address >> 8) as u8, back_up_address as u8], &mut data).unwrap();
+            let mut step = 0;
+            //hprintln!("read array {:?}", data);
+            for (mem_loc, size) in $mem_locs.iter().zip($sizes.iter()) {
+                //hprintln!("{:?}", [step..step+*size+1]);
+                copy_slice!(&data[step..step+*size+1], *mem_loc as _, *size);    
+                step = step + *size;
+            }
+    }
+    }};
+}
+
+macro_rules! checkpoint_globals {
+    ($first:expr, $mem_locs:expr, $sizes:expr) => {{
+        // Calculate the combined size of all arrays
+        let len: usize = $sizes.iter().sum();
+
+        // Allocate memory for the backing up data in flash
+        let mut buff = [0;50];
+
+        buff[0]= ((back_up_address >> 8) & 0xFF) as u8;
+        buff[1] = (back_up_address & 0xFF) as u8;
+    
+        // Iterate over memory locations and sizes simultaneously
+        let mut step = 0;
+        for (mem_loc, size) in $mem_locs.iter().zip($sizes.iter()) {
+            // Copy elements of each array into the combined array
+            let byte_ptr = *mem_loc as *const u8;    
+            for i in 0..*size{
+                buff[i+ step+2] =  *byte_ptr.add(i);   
+            }
+            step = step + *size;
+        }
+        //hprintln!("buff {:?}", buff);
+        $first.write(FRAM_ADDRESS, &buff);
+
+    }};
+}
+
 #[no_mangle]
 pub extern "C" fn main() -> ! {
     //delete_pg(0x0803_0000 as u32);  //0x0807_F800
     let mut i2c = init_i2c();
-
     unsafe{
-        restore_globals(&mut i2c, &y as *const u8, mem::size_of_val(&y));
-        restore_globals(&mut i2c, &z as *const u8, mem::size_of_val(&z));
+            // Define arrays for memory locations and sizes
+            let mem_locs = [&y as *const u8, &z as *const u8];
+            let sizes = [mem::size_of_val(&y), mem::size_of_val(&z)];
+            checkpoint_globals!(&mut i2c, &mem_locs, &sizes);
+            restore_globals!(&mut i2c, &mem_locs, &sizes);
+
+    }
+    unsafe{
+        hprintln!("The value y {}", y).unwrap();
+        hprintln!("The value z {}", z).unwrap();
     }
 
-    restore();
+    // unsafe{
+    //     restore_globals(&mut i2c, &y as *const u8, mem::size_of_val(&y));
+    //     restore_globals(&mut i2c, &z as *const u8, mem::size_of_val(&z));
+    // }
+
+    // restore();
     unsafe{
         let c = y+z;
         //checkpoint_variables(&mut y, &mut z); // y and z are the exclusive may write variables
         //inline
-        checkpoint_globals(&mut i2c, &y as *const u8, mem::size_of_val(&y));
-        checkpoint_globals(&mut i2c, &z as *const u8, mem::size_of_val(&z));
-        checkpoint();
+
+
+        // checkpoint_globals(&mut i2c, &y as *const u8, mem::size_of_val(&y));
+        // checkpoint_globals(&mut i2c, &z as *const u8, mem::size_of_val(&z));
+        //checkpoint();
 
         let d = c *2;
 
-        t = 10;
-        if t>=5{
+        // t = 10;
+        // if t>=5{
 
-            i2c.write(FRAM_ADDRESS, &[((0x0000 >> 8) & 0xFF) as u8 ,(0x0000 & 0xFF) as u8, 6u8]);//x = 6;
+        //     i2c.write(FRAM_ADDRESS, &[((0x0000 >> 8) & 0xFF) as u8 ,(0x0000 & 0xFF) as u8, 6u8]);//x = 6;
             
-            x = 6;
-            i2c.write(FRAM_ADDRESS, &[((0x0001 >> 8) & 0xFF) as u8 ,(0x0001 & 0xFF) as u8, 7u8]);//y = 7;
-            y = 7;
-        }else{
-            let mut data = [0u8];
-            i2c.write_read(FRAM_ADDRESS, &[(0x0002 >> 8) as u8, 0x0002 as u8], &mut data).unwrap();
-            x = data[0];//x = z;
-            z = 8;
-            i2c.write(FRAM_ADDRESS, &[((0x0002 >> 8) & 0xFF) as u8 ,(0x0002 & 0xFF) as u8, 8u8]);
-        }
+        //     x = 6;
+        //     i2c.write(FRAM_ADDRESS, &[((0x0001 >> 8) & 0xFF) as u8 ,(0x0001 & 0xFF) as u8, 7u8]);//y = 7;
+        //     y = 7;
+        // }else{
+        //     let mut data = [0u8];
+        //     i2c.write_read(FRAM_ADDRESS, &[(0x0002 >> 8) as u8, 0x0002 as u8], &mut data).unwrap();
+        //     x = data[0];//x = z;
+        //     z = 8;
+        //     i2c.write(FRAM_ADDRESS, &[((0x0002 >> 8) & 0xFF) as u8 ,(0x0002 & 0xFF) as u8, 8u8]);
+        // }
     }
   
     
